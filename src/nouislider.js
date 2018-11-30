@@ -206,6 +206,10 @@
         vRange = vRange[1] - vRange[0];
         pRange = pRange[1] - pRange[0];
 
+        if (value <= 0) {
+            return 0;
+        }
+
         return pRange === 100 ? (pRange * value) / vRange : (pRange * value * value) / (vRange * vRange);
     }
 
@@ -214,6 +218,10 @@
         value = value - pRange[0];
         vRange = vRange[1] - vRange[0];
         pRange = pRange[1] - pRange[0];
+
+        if (value <= 0) {
+            return 0;
+        }
 
         return pRange === 100 ? (value * vRange) / pRange : (Math.sqrt(value) * vRange) / Math.sqrt(pRange);
     }
@@ -667,6 +675,14 @@
 
         entry[0] = entry[0] + parsed.spectrum.xVal[0];
         entry[1] = parsed.spectrum.xVal[parsed.spectrum.xVal.length - 1] - entry[1];
+
+        if (entry[0] >= parsed.spectrum.xVal[parsed.spectrum.xVal.length - 1]) {
+            throw new Error("noUiSlider (" + VERSION + "): 'padding' option must not exceed 100% of the range.");
+        }
+
+        if (entry[1] <= parsed.spectrum.xVal[0]) {
+            throw new Error("noUiSlider (" + VERSION + "): 'padding' option must not exceed 100% of the range.");
+        }
 
         parsed.padding = [parsed.spectrum.getPadding(entry[0]), 100 - parsed.spectrum.getPadding(entry[1])];
 
