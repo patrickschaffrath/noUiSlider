@@ -1,6 +1,6 @@
 {
   "name": "nouislider",
-  "version": "12.1.0",
+  "version": "12.1.0-ps",
   "main": "distribute/nouislider.js",
   "style": "distribute/nouislider.min.css",
   "license": "MIT",
@@ -33,7 +33,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/leongersen/noUiSlider.git"
+    "url": "git://github.com/patrickschaffrath/noUiSlider.git"
   },
   "files": [
     "distribute"

@@ -1,4 +1,4 @@
-/*! nouislider - 12.1.0 - 10/25/2018 */
+/*! nouislider - 12.1.0-ps - 12/3/2018 */
 (function(factory) {
     if (typeof define === "function" && define.amd) {
         // AMD. Register as an anonymous module.
@@ -13,7 +13,7 @@
 })(function() {
     "use strict";
 
-    var VERSION = "12.1.0";
+    var VERSION = "12.1.0-ps";
 
     function isValidFormatter(entry) {
         return typeof entry === "object" && typeof entry.to === "function" && typeof entry.from === "function";
@@ -131,13 +131,13 @@
         var x = supportPageOffset
             ? window.pageXOffset
             : isCSS1Compat
-                ? doc.documentElement.scrollLeft
-                : doc.body.scrollLeft;
+            ? doc.documentElement.scrollLeft
+            : doc.body.scrollLeft;
         var y = supportPageOffset
             ? window.pageYOffset
             : isCSS1Compat
-                ? doc.documentElement.scrollTop
-                : doc.body.scrollTop;
+            ? doc.documentElement.scrollTop
+            : doc.body.scrollTop;
 
         return {
             x: x,
@@ -158,16 +158,16 @@
                   end: "pointerup"
               }
             : window.navigator.msPointerEnabled
-                ? {
-                      start: "MSPointerDown",
-                      move: "MSPointerMove",
-                      end: "MSPointerUp"
-                  }
-                : {
-                      start: "mousedown touchstart",
-                      move: "mousemove touchmove",
-                      end: "mouseup touchend"
-                  };
+            ? {
+                  start: "MSPointerDown",
+                  move: "MSPointerMove",
+                  end: "MSPointerUp"
+              }
+            : {
+                  start: "mousedown touchstart",
+                  move: "mousemove touchmove",
+                  end: "mouseup touchend"
+              };
     }
 
     // https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md
@@ -196,24 +196,35 @@
 
     // Value calculation
 
-    // Determine the size of a sub-range in relation to a full range.
-    function subRangeRatio(pa, pb) {
-        return 100 / (pb - pa);
-    }
-
     // (percentage) How many percent is this value of this range?
-    function fromPercentage(range, value) {
+    function percentage(range, value) {
         return (value * 100) / (range[1] - range[0]);
     }
 
-    // (percentage) Where is this value on this range?
-    function toPercentage(range, value) {
-        return fromPercentage(range, range[0] < 0 ? value + Math.abs(range[0]) : value - range[0]);
+    // (percentage) Where is this value on this (non) linear range?
+    function toPercentage(vRange, pRange, value) {
+        value = value - vRange[0];
+        vRange = vRange[1] - vRange[0];
+        pRange = pRange[1] - pRange[0];
+
+        if (value <= 0) {
+            return 0;
+        }
+
+        return pRange === 100 ? (pRange * value) / vRange : (pRange * value * value) / (vRange * vRange);
     }
 
-    // (value) How much is this percentage on this range?
-    function isPercentage(range, value) {
-        return (value * (range[1] - range[0])) / 100 + range[0];
+    // (value) What is the value of this percentage on this (non) linear range?
+    function fromPercentage(vRange, pRange, value) {
+        value = value - pRange[0];
+        vRange = vRange[1] - vRange[0];
+        pRange = pRange[1] - pRange[0];
+
+        if (value <= 0) {
+            return 0;
+        }
+
+        return pRange === 100 ? (value * vRange) / pRange : (Math.sqrt(value) * vRange) / Math.sqrt(pRange);
     }
 
     // Range conversion
@@ -240,7 +251,7 @@
         var pa = xPct[j - 1];
         var pb = xPct[j];
 
-        return pa + toPercentage([va, vb], value) / subRangeRatio(pa, pb);
+        return pa + toPercentage([va, vb], [pa, pb], value);
     }
 
     // (value) Input a percentage, find where it is on the specified range.
@@ -256,34 +267,36 @@
         var pa = xPct[j - 1];
         var pb = xPct[j];
 
-        return isPercentage([va, vb], (value - pa) * subRangeRatio(pa, pb));
+        return va + fromPercentage([va, vb], [pa, pb], value);
     }
 
     // (percentage) Get the step that applies at a certain value.
-    function getStep(xPct, xSteps, snap, value) {
+    function getStep(xPct, xVal, xSteps, snap, value, ignoreSteps) {
         if (value === 100) {
             return value;
         }
 
         var j = getJ(value, xPct);
-        var a = xPct[j - 1];
-        var b = xPct[j];
+        var step = xSteps[j - 1];
+        var pa = xPct[j - 1];
+        var pb = xPct[j];
+        var va = xVal[j - 1];
 
         // If 'snap' is set, steps are used as fixed points on the slider.
         if (snap) {
             // Find the closest position, a or b.
-            if (value - a > (b - a) / 2) {
-                return b;
+            if (value - pa > (pb - pa) / 2) {
+                return pb;
             }
 
-            return a;
+            return pa;
         }
 
-        if (!xSteps[j - 1]) {
+        if (!step || ignoreSteps) {
             return value;
         }
 
-        return xPct[j - 1] + closest(value - xPct[j - 1], xSteps[j - 1]);
+        return toStepping(xVal, xPct, closest(fromStepping(xVal, xPct, value) - va, step) + va);
     }
 
     // Entry parsing
@@ -339,13 +352,9 @@
             return true;
         }
 
-        // Factor to range ratio
-        that.xSteps[i] =
-            fromPercentage([that.xVal[i], that.xVal[i + 1]], n) / subRangeRatio(that.xPct[i], that.xPct[i + 1]);
-
-        var totalSteps = (that.xVal[i + 1] - that.xVal[i]) / that.xNumSteps[i];
+        var totalSteps = (that.xVal[i + 1] - that.xVal[i]) / that.xSteps[i];
         var highestStep = Math.ceil(Number(totalSteps.toFixed(3)) - 1);
-        var step = that.xVal[i] + that.xNumSteps[i] * highestStep;
+        var step = that.xVal[i] + that.xSteps[i] * highestStep;
 
         that.xHighestCompleteStep[i] = step;
     }
@@ -356,7 +365,6 @@
         this.xPct = [];
         this.xVal = [];
         this.xSteps = [singleStep || false];
-        this.xNumSteps = [false];
         this.xHighestCompleteStep = [];
 
         this.snap = snap;
@@ -387,24 +395,35 @@
             handleEntryPoint(ordered[index][1], ordered[index][0], this);
         }
 
-        // Store the actual step values.
-        // xSteps is sorted in the same order as xPct and xVal.
-        this.xNumSteps = this.xSteps.slice(0);
-
         // Convert all numeric steps to the percentage of the subrange they represent.
-        for (index = 0; index < this.xNumSteps.length; index++) {
-            handleStepPoint(index, this.xNumSteps[index], this);
+        for (index = 0; index < this.xSteps.length; index++) {
+            handleStepPoint(index, this.xSteps[index], this);
         }
     }
 
+    Spectrum.prototype.getPadding = function(value) {
+        for (var index = 1; index < this.xVal.length; index++) {
+            var va = this.xVal[index - 1];
+            var vb = this.xVal[index];
+            var pa = this.xPct[index - 1];
+            var pb = this.xPct[index];
+
+            if (vb === value) {
+                return pb;
+            } else if (vb > value) {
+                return pa + toPercentage([va, vb], [pa, pb], value);
+            }
+        }
+    };
+
     Spectrum.prototype.getMargin = function(value) {
-        var step = this.xNumSteps[0];
+        var step = this.xSteps[0];
 
         if (step && (value / step) % 1 !== 0) {
-            throw new Error("noUiSlider (" + VERSION + "): 'limit', 'margin' and 'padding' must be divisible by step.");
+            throw new Error("noUiSlider (" + VERSION + "): 'limit' and 'margin' must be divisible by step.");
         }
 
-        return this.xPct.length === 2 ? fromPercentage(this.xVal, value) : false;
+        return this.xPct.length === 2 ? percentage(this.xVal, value) : false;
     };
 
     Spectrum.prototype.toStepping = function(value) {
@@ -417,8 +436,8 @@
         return fromStepping(this.xVal, this.xPct, value);
     };
 
-    Spectrum.prototype.getStep = function(value) {
-        value = getStep(this.xPct, this.xSteps, this.snap, value);
+    Spectrum.prototype.getStep = function(value, ignoreSteps) {
+        value = getStep(this.xPct, this.xVal, this.xSteps, this.snap, value, ignoreSteps);
 
         return value;
     };
@@ -429,24 +448,24 @@
         return {
             stepBefore: {
                 startValue: this.xVal[j - 2],
-                step: this.xNumSteps[j - 2],
+                step: this.xSteps[j - 2],
                 highestStep: this.xHighestCompleteStep[j - 2]
             },
             thisStep: {
                 startValue: this.xVal[j - 1],
-                step: this.xNumSteps[j - 1],
+                step: this.xSteps[j - 1],
                 highestStep: this.xHighestCompleteStep[j - 1]
             },
             stepAfter: {
                 startValue: this.xVal[j],
-                step: this.xNumSteps[j],
+                step: this.xSteps[j],
                 highestStep: this.xHighestCompleteStep[j]
             }
         };
     };
 
     Spectrum.prototype.countStepDecimals = function() {
-        var stepDecimals = this.xNumSteps.map(countDecimals);
+        var stepDecimals = this.xSteps.map(countDecimals);
         return Math.max.apply(null, stepDecimals);
     };
 
@@ -655,12 +674,18 @@
             entry = [entry, entry];
         }
 
-        // 'getMargin' returns false for invalid values.
-        parsed.padding = [parsed.spectrum.getMargin(entry[0]), parsed.spectrum.getMargin(entry[1])];
+        entry[0] = entry[0] + parsed.spectrum.xVal[0];
+        entry[1] = parsed.spectrum.xVal[parsed.spectrum.xVal.length - 1] - entry[1];
 
-        if (parsed.padding[0] === false || parsed.padding[1] === false) {
-            throw new Error("noUiSlider (" + VERSION + "): 'padding' option is only supported on linear sliders.");
+        if (entry[0] >= parsed.spectrum.xVal[parsed.spectrum.xVal.length - 1]) {
+            throw new Error("noUiSlider (" + VERSION + "): 'padding' option must not exceed 100% of the range.");
         }
+
+        if (entry[1] <= parsed.spectrum.xVal[0]) {
+            throw new Error("noUiSlider (" + VERSION + "): 'padding' option must not exceed 100% of the range.");
+        }
+
+        parsed.padding = [parsed.spectrum.getPadding(entry[0]), 100 - parsed.spectrum.getPadding(entry[1])];
 
         if (parsed.padding[0] < 0 || parsed.padding[1] < 0) {
             throw new Error("noUiSlider (" + VERSION + "): 'padding' option must be a positive number(s).");
@@ -1206,7 +1231,7 @@
                 // When using 'steps' mode, use the provided steps.
                 // Otherwise, we'll step on to the next subrange.
                 if (isSteps) {
-                    step = scope_Spectrum.xNumSteps[index];
+                    step = scope_Spectrum.xSteps[index];
                 }
 
                 // Default to a 'full' step.
@@ -1544,6 +1569,10 @@
             // Check if we are moving up or down
             var movement = (options.dir ? -1 : 1) * (event.calcPoint - data.startCalcPoint);
 
+            if (movement === 0) {
+                return;
+            }
+
             // Convert the movement into a percentage of the slider width/height
             var proposal = (movement * 100) / data.baseSize;
 
@@ -1831,7 +1860,7 @@
         }
 
         // Split out the handle positioning logic so the Move event can use it, too
-        function checkHandlePosition(reference, handleNumber, to, lookBackward, lookForward, getValue) {
+        function checkHandlePosition(reference, handleNumber, to, lookBackward, lookForward, getValue, ignoreSteps) {
             // For sliders with multiple handles, limit movement to the other handle.
             // Apply the margin option by adding it to the handle positions.
             if (scope_Handles.length > 1 && !options.events.unconstrained) {
@@ -1857,6 +1886,11 @@
                 }
             }
 
+            to = scope_Spectrum.getStep(to, ignoreSteps);
+
+            // Limit percentage to the 0 - 100 range
+            to = limit(to);
+
             // The padding option keeps the handles a certain distance from the
             // edges of the slider. Padding must be > 0.
             if (options.padding) {
@@ -1868,11 +1902,6 @@
                     to = Math.min(to, 100 - options.padding[1]);
                 }
             }
-
-            to = scope_Spectrum.getStep(to);
-
-            // Limit percentage to the 0 - 100 range
-            to = limit(to);
 
             // Return false if handle can't move
             if (to === reference[handleNumber] && !getValue) {
@@ -1983,8 +2012,8 @@
         }
 
         // Test suggested values and apply margin, step.
-        function setHandle(handleNumber, to, lookBackward, lookForward) {
-            to = checkHandlePosition(scope_Locations, handleNumber, to, lookBackward, lookForward, false);
+        function setHandle(handleNumber, to, lookBackward, lookForward, ignoreSteps) {
+            to = checkHandlePosition(scope_Locations, handleNumber, to, lookBackward, lookForward, false, ignoreSteps);
 
             if (to === false) {
                 return false;
@@ -2049,7 +2078,7 @@
         }
 
         // Set the slider value.
-        function valueSet(input, fireSetEvent) {
+        function valueSet(input, fireSetEvent, ignoreSteps) {
             var values = asArray(input);
             var isInit = scope_Locations[0] === undefined;
 
@@ -2064,12 +2093,12 @@
 
             // First pass, without lookAhead but with lookBackward. Values are set from left to right.
             scope_HandleNumbers.forEach(function(handleNumber) {
-                setHandle(handleNumber, resolveToValue(values[handleNumber], handleNumber), true, false);
+                setHandle(handleNumber, resolveToValue(values[handleNumber], handleNumber), true, false, ignoreSteps);
             });
 
             // Second pass. Now that all base values are set, apply constraints
             scope_HandleNumbers.forEach(function(handleNumber) {
-                setHandle(handleNumber, scope_Locations[handleNumber], true, true);
+                setHandle(handleNumber, scope_Locations[handleNumber], true, true, ignoreSteps);
             });
 
             setZindex();
@@ -2086,7 +2115,7 @@
 
         // Reset slider to initial values
         function valueReset(fireSetEvent) {
-            valueSet(options.start, fireSetEvent);
+            valueSet(options.start, fireSetEvent, true);
         }
 
         // Set value for a single handle
@@ -2241,7 +2270,7 @@
         bindSliderEvents(options.events);
 
         // Use the public value method to set the start values.
-        valueSet(options.start);
+        valueSet(options.start, true, true);
 
         // noinspection JSUnusedGlobalSymbols
         scope_Self = {
