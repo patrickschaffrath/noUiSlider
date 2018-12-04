@@ -1,4 +1,4 @@
-/*! nouislider - 12.1.0-ps - 12/3/2018 */
+/*! nouislider - 12.1.0-ps - 12/4/2018 */
 (function(factory) {
     if (typeof define === "function" && define.amd) {
         // AMD. Register as an anonymous module.
@@ -271,7 +271,7 @@
     }
 
     // (percentage) Get the step that applies at a certain value.
-    function getStep(xPct, xVal, xSteps, snap, value, ignoreSteps) {
+    function getStep(xPct, xVal, xSteps, snap, value, toClosest) {
         if (value === 100) {
             return value;
         }
@@ -292,7 +292,7 @@
             return pa;
         }
 
-        if (!step || ignoreSteps) {
+        if (!step || !toClosest) {
             return value;
         }
 
@@ -436,8 +436,8 @@
         return fromStepping(this.xVal, this.xPct, value);
     };
 
-    Spectrum.prototype.getStep = function(value, ignoreSteps) {
-        value = getStep(this.xPct, this.xVal, this.xSteps, this.snap, value, ignoreSteps);
+    Spectrum.prototype.getStep = function(value, toClosest) {
+        value = getStep(this.xPct, this.xVal, this.xSteps, this.snap, value, toClosest);
 
         return value;
     };
@@ -1714,7 +1714,7 @@
                 addClassFor(scope_Target, options.cssClasses.tap, options.animationDuration);
             }
 
-            setHandle(handleNumber, proposal, true, true);
+            setHandle(handleNumber, proposal, true, true, true);
 
             setZindex();
 
@@ -1860,7 +1860,7 @@
         }
 
         // Split out the handle positioning logic so the Move event can use it, too
-        function checkHandlePosition(reference, handleNumber, to, lookBackward, lookForward, getValue, ignoreSteps) {
+        function checkHandlePosition(reference, handleNumber, to, lookBackward, lookForward, getValue, toClosest) {
             // For sliders with multiple handles, limit movement to the other handle.
             // Apply the margin option by adding it to the handle positions.
             if (scope_Handles.length > 1 && !options.events.unconstrained) {
@@ -1886,7 +1886,7 @@
                 }
             }
 
-            to = scope_Spectrum.getStep(to, ignoreSteps);
+            to = scope_Spectrum.getStep(to, toClosest);
 
             // Limit percentage to the 0 - 100 range
             to = limit(to);
@@ -1965,7 +1965,7 @@
 
             // Step 2: Try to set the handles with the found percentage
             handleNumbers.forEach(function(handleNumber, o) {
-                state = setHandle(handleNumber, locations[handleNumber] + proposal, b[o], f[o]) || state;
+                state = setHandle(handleNumber, locations[handleNumber] + proposal, b[o], f[o], true) || state;
             });
 
             // Step 3: If a handle moved, fire events
@@ -2012,8 +2012,8 @@
         }
 
         // Test suggested values and apply margin, step.
-        function setHandle(handleNumber, to, lookBackward, lookForward, ignoreSteps) {
-            to = checkHandlePosition(scope_Locations, handleNumber, to, lookBackward, lookForward, false, ignoreSteps);
+        function setHandle(handleNumber, to, lookBackward, lookForward, toClosest) {
+            to = checkHandlePosition(scope_Locations, handleNumber, to, lookBackward, lookForward, false, toClosest);
 
             if (to === false) {
                 return false;
@@ -2078,7 +2078,7 @@
         }
 
         // Set the slider value.
-        function valueSet(input, fireSetEvent, ignoreSteps) {
+        function valueSet(input, fireSetEvent) {
             var values = asArray(input);
             var isInit = scope_Locations[0] === undefined;
 
@@ -2093,12 +2093,12 @@
 
             // First pass, without lookAhead but with lookBackward. Values are set from left to right.
             scope_HandleNumbers.forEach(function(handleNumber) {
-                setHandle(handleNumber, resolveToValue(values[handleNumber], handleNumber), true, false, ignoreSteps);
+                setHandle(handleNumber, resolveToValue(values[handleNumber], handleNumber), true, false);
             });
 
             // Second pass. Now that all base values are set, apply constraints
             scope_HandleNumbers.forEach(function(handleNumber) {
-                setHandle(handleNumber, scope_Locations[handleNumber], true, true, ignoreSteps);
+                setHandle(handleNumber, scope_Locations[handleNumber], true, true);
             });
 
             setZindex();
@@ -2115,7 +2115,7 @@
 
         // Reset slider to initial values
         function valueReset(fireSetEvent) {
-            valueSet(options.start, fireSetEvent, true);
+            valueSet(options.start, fireSetEvent);
         }
 
         // Set value for a single handle
@@ -2270,7 +2270,7 @@
         bindSliderEvents(options.events);
 
         // Use the public value method to set the start values.
-        valueSet(options.start, true, true);
+        valueSet(options.start);
 
         // noinspection JSUnusedGlobalSymbols
         scope_Self = {
