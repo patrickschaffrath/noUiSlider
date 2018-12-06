@@ -210,7 +210,7 @@
             return 0;
         }
 
-        return pRange === 100 ? (pRange * value) / vRange : (pRange * value * value) / (vRange * vRange);
+        return (pRange * value) / vRange;
     }
 
     // (value) What is the value of this percentage on this (non) linear range?
@@ -223,7 +223,7 @@
             return 0;
         }
 
-        return pRange === 100 ? (value * vRange) / pRange : (Math.sqrt(value) * vRange) / Math.sqrt(pRange);
+        return (value * vRange) / pRange;
     }
 
     // Range conversion

@@ -1,4 +1,4 @@
-/*! nouislider - 12.1.0-ps1 - 12/5/2018 */
+/*! nouislider - 12.1.0-ps2 - 12/6/2018 */
 (function(factory) {
     if (typeof define === "function" && define.amd) {
         // AMD. Register as an anonymous module.
@@ -13,7 +13,7 @@
 })(function() {
     "use strict";
 
-    var VERSION = "12.1.0-ps1";
+    var VERSION = "12.1.0-ps2";
 
     function isValidFormatter(entry) {
         return typeof entry === "object" && typeof entry.to === "function" && typeof entry.from === "function";
@@ -211,7 +211,7 @@
             return 0;
         }
 
-        return pRange === 100 ? (pRange * value) / vRange : (pRange * value * value) / (vRange * vRange);
+        return (pRange * value) / vRange;
     }
 
     // (value) What is the value of this percentage on this (non) linear range?
@@ -224,7 +224,7 @@
             return 0;
         }
 
-        return pRange === 100 ? (value * vRange) / pRange : (Math.sqrt(value) * vRange) / Math.sqrt(pRange);
+        return (value * vRange) / pRange;
     }
 
     // Range conversion
